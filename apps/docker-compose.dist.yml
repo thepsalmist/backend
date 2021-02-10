@@ -220,7 +220,7 @@ x-solr-shard_base:   &solr-shard_base
         # (keep in sync with how many shard services get actually defined in
         # the "services" section, e.g. solr-shard-01, solr-shard-02,
         # ..., solr-shard-24)
-        MC_SOLR_SHARD_COUNT: "24"
+        MC_SOLR_SHARD_COUNT: "2"
     depends_on:
         - solr-zookeeper
     expose:
@@ -388,29 +388,29 @@ services:
     # AP crawler
     # ----------
     #
-    crawler-ap:
-        image: gcr.io/mcback/crawler-ap:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-            # AP API key
-            MC_CRAWLER_AP_API_KEY: ""
-        depends_on:
-            - postgresql-pgbouncer
-            - rabbitmq-server
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            # Worker count
-            replicas: 1
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "512M"
+    # crawler-ap:
+    #     image: gcr.io/mcback/crawler-ap:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #         # AP API key
+    #         MC_CRAWLER_AP_API_KEY: ""
+    #     depends_on:
+    #         - postgresql-pgbouncer
+    #         - rabbitmq-server
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         # Worker count
+    #         replicas: 1
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "512M"
 
     #
     # Crawler fetcher
@@ -704,126 +704,186 @@ services:
                     memory: "256M"
 
     #
-    # ELK Elasticsearch (log indexing)
-    # --------------------------------
+    # ELK Auditbeat (auditd log collection)
+    # -------------------------------------
     #
-    elk-elasticsearch:
-        image: gcr.io/mcback/elk-elasticsearch:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-            # S3 credentials for Elasticsearch snapshot storage:
-            MC_ELK_ELASTICSEARCH_SNAPSHOT_S3_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
-            MC_ELK_ELASTICSEARCH_SNAPSHOT_S3_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY"
-            MC_ELK_ELASTICSEARCH_SNAPSHOT_S3_BUCKET_NAME: "mediacloud-test-elk-elasticsearch-snapshots"
-            MC_ELK_ELASTICSEARCH_SNAPSHOT_S3_PATH_PREFIX: "snapshots"
-        expose:
-            # HTTP transport
-            - "9200"
-            # TCP transport
-            - "9300"
-        volumes:
-            - vol_elk_elasticsearch_data:/var/lib/elasticsearch/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            placement:
-                constraints:
-                    # Must run on the host with ELK Elasticsearch data volume
-                    - node.labels.role-elk-elasticsearch == true
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "4"
-                    # RAM limit
-                    memory: "8G"
+    # elk-auditbeat:
+    #     image: gcr.io/mcback/elk-auditbeat:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #     ulimits:
+    #         # Increase open file limit as there might be many files to track
+    #         nofile:
+    #             soft: 65535
+    #             hard: 65535
+    #     # Use same PID namespace as host system
+    #     pid: host
+    #     # Allow reading and controlling auditd
+    #     cap_add:
+    #         - AUDIT_READ
+    #         - AUDIT_CONTROL
+    #     volumes:
+    #         # Mount a bunch of files and directories to be audited
+    #         - /etc/hostname:/etc/hostname:ro
+    #         - /etc/machine-id:/etc/machine-id:ro
+    #         - /sys/:/sys/:ro
+    #         - /bin/:/opt/auditbeat/host/bin/:ro
+    #         - /usr/bin/:/opt/auditbeat/host/usr/bin/:ro
+    #         - /sbin/:/opt/auditbeat/host/sbin/:ro
+    #         - /usr/sbin/:/opt/auditbeat/host/usr/sbin/:ro
+    #         - /etc/:/opt/auditbeat/host/etc/:ro
+    #         - /var/log/:/opt/auditbeat/host/var/log/:ro
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         # Run on every node to be able to collect logs from each
+    #         mode: global
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "1G"
 
-    #
-    # ELK Filebeat (plain text log collection)
-    # ----------------------------------------
-    #
-    elk-filebeat:
-        image: gcr.io/mcback/elk-filebeat:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-        volumes:
-            # Mount log directories, Docker directories and socket for Filebeat to
-            # be able to read logs
-            - /etc/hostname:/etc/hostname:ro
-            - /etc/machine-id:/etc/machine-id:ro
-            - /var/log/:/var/log/:ro
-            - /var/lib/docker/:/var/lib/docker/:ro
-            - /var/run/docker.sock:/var/run/docker.sock
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            # Run on every node to be able to collect logs from each
-            mode: global
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "1G"
+    # #
+    # # ELK Elasticsearch (log indexing)
+    # # --------------------------------
+    # #
+    # elk-elasticsearch:
+    #     image: gcr.io/mcback/elk-elasticsearch:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #         # S3 credentials for Elasticsearch snapshot storage:
+    #         MC_ELK_ELASTICSEARCH_SNAPSHOT_S3_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
+    #         MC_ELK_ELASTICSEARCH_SNAPSHOT_S3_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY"
+    #         MC_ELK_ELASTICSEARCH_SNAPSHOT_S3_BUCKET_NAME: "mediacloud-test-elk-elasticsearch-snapshots"
+    #         MC_ELK_ELASTICSEARCH_SNAPSHOT_S3_PATH_PREFIX: "snapshots"
+    #     expose:
+    #         # HTTP transport
+    #         - "9200"
+    #         # TCP transport
+    #         - "9300"
+    #     ulimits:
+    #         # https://www.elastic.co/guide/en/elasticsearch/reference/current/max-number-of-threads.html
+    #         nproc: 4096
+    #         # https://www.elastic.co/guide/en/elasticsearch/reference/current/file-descriptors.html
+    #         nofile:
+    #             soft: 65535
+    #             hard: 65535
+    #     volumes:
+    #         - vol_elk_elasticsearch_data:/var/lib/elasticsearch/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         placement:
+    #             constraints:
+    #                 # Must run on the host with ELK Elasticsearch data volume
+    #                 - node.labels.role-elk-elasticsearch == true
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "2"
+    #                 # RAM limit
+    #                 memory: "8G"
 
-    #
-    # ELK Journalbeat (journald log collection)
-    # -----------------------------------------
-    #
-    elk-journalbeat:
-        image: gcr.io/mcback/elk-journalbeat:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-        volumes:
-            # Mount journald log directory for Journalbeat to be able to read logs
-            - /etc/hostname:/etc/hostname:ro
-            - /etc/machine-id:/etc/machine-id:ro
-            - /var/log/journal/:/var/log/journal/:ro
-            # - /run/systemd:/run/systemd/:ro
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            # Run on every node to be able to collect logs from each
-            mode: global
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "1G"
+    # #
+    # # ELK Filebeat (plain text log collection)
+    # # ----------------------------------------
+    # #
+    # elk-filebeat:
+    #     image: gcr.io/mcback/elk-filebeat:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #     ulimits:
+    #         # Increase open file limit as there might be many containers to track
+    #         nofile:
+    #             soft: 65535
+    #             hard: 65535
+    #     volumes:
+    #         # Mount log directories, Docker directories and socket for Filebeat to
+    #         # be able to read logs
+    #         - /etc/hostname:/etc/hostname:ro
+    #         - /etc/machine-id:/etc/machine-id:ro
+    #         - /var/log/:/var/log/:ro
+    #         - /var/lib/docker/:/var/lib/docker/:ro
+    #         - /var/run/docker.sock:/var/run/docker.sock
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         # Run on every node to be able to collect logs from each
+    #         mode: global
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "1G"
 
-    #
-    # ELK Kibana (web UI)
-    # ------------------------------
-    #
-    elk-kibana:
-        image: gcr.io/mcback/elk-kibana:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-        expose:
-            # Web server
-            - "5601"
-        ports:
-            # For connecting to through a SSH tunnel
-            # MAKE SURE to BLOCK THIS PORT in provision/roles/docker/tasks/iptables.yml
-            - "5601:5601"
-        deploy:
-            # DNSRR disabled as it's not supported with published ports.
-            <<: *misc-apps_deploy_placement_constraints
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "2"
-                    # RAM limit
-                    memory: "8G"
+    # #
+    # # ELK Journalbeat (journald log collection)
+    # # -----------------------------------------
+    # #
+    # elk-journalbeat:
+    #     image: gcr.io/mcback/elk-journalbeat:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #     ulimits:
+    #         # Increase open file limit as there might be many files to track
+    #         nofile:
+    #             soft: 65535
+    #             hard: 65535
+    #     volumes:
+    #         # Mount journald log directory for Journalbeat to be able to read logs
+    #         - /etc/hostname:/etc/hostname:ro
+    #         - /etc/machine-id:/etc/machine-id:ro
+    #         - /var/log/journal/:/var/log/journal/:ro
+    #         # - /run/systemd:/run/systemd/:ro
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         # Run on every node to be able to collect logs from each
+    #         mode: global
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "1G"
+
+    # #
+    # # ELK Kibana (web UI)
+    # # ------------------------------
+    # #
+    # elk-kibana:
+    #     image: gcr.io/mcback/elk-kibana:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #     expose:
+    #         # Web server
+    #         - "5601"
+    #     ports:
+    #         # For connecting to through a SSH tunnel
+    #         # MAKE SURE to BLOCK THIS PORT in provision/roles/docker/tasks/iptables.yml
+    #         - "5601:5601"
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "2"
+    #                 # RAM limit
+    #                 memory: "8G"
 
     #
     # Extract and vector stories
@@ -882,36 +942,36 @@ services:
     # Fetch story stats from Facebook
     # -------------------------------
     #
-    facebook-fetch-story-stats:
-        image: gcr.io/mcback/facebook-fetch-story-stats:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-            # Facebook application ID
-            MC_FACEBOOK_APP_ID: ""
-            # Facebook application secret
-            MC_FACEBOOK_APP_SECRET: ""
-        depends_on:
-            - postgresql-pgbouncer
-            - rabbitmq-server
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            # Worker count
-            replicas: 4
-            restart_policy:
-                # Automatically restart on non-zero exit codes only instead of on any exit
-                condition: on-failure
-                # Autorestart up to three times
-                max_attempts: 3
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "256M"
+    # facebook-fetch-story-stats:
+    #     image: gcr.io/mcback/facebook-fetch-story-stats:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #         # Facebook application ID
+    #         MC_FACEBOOK_APP_ID: ""
+    #         # Facebook application secret
+    #         MC_FACEBOOK_APP_SECRET: ""
+    #     depends_on:
+    #         - postgresql-pgbouncer
+    #         - rabbitmq-server
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         # Worker count
+    #         replicas: 4
+    #         restart_policy:
+    #             # Automatically restart on non-zero exit codes only instead of on any exit
+    #             condition: on-failure
+    #             # Autorestart up to three times
+    #             max_attempts: 3
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "256M"
 
     #
     # Import stories into Solr
@@ -968,208 +1028,208 @@ services:
     # OpenDKIM server
     # ---------------
     #
-    mail-opendkim-server:
-        image: gcr.io/mcback/mail-opendkim-server:release
-        init: true
-        networks:
-            - default
-        environment:
-            # Top-level domain to use for signing emails, e.g. "mediacloud.org"
-            MC_MAIL_OPENDKIM_DOMAIN: "mediacloud.org"
-        expose:
-            # OpenDKIM port used by Postfix
-            - "12301"
-        volumes:
-            - vol_opendkim_config:/etc/opendkim/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            placement:
-                constraints:
-                    # Must run on the host with OpenDKIM data volume
-                    - node.labels.role-mail-opendkim == true
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "128M"
+    # mail-opendkim-server:
+    #     image: gcr.io/mcback/mail-opendkim-server:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         # Top-level domain to use for signing emails, e.g. "mediacloud.org"
+    #         MC_MAIL_OPENDKIM_DOMAIN: "mediacloud.org"
+    #     expose:
+    #         # OpenDKIM port used by Postfix
+    #         - "12301"
+    #     volumes:
+    #         - vol_opendkim_config:/etc/opendkim/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         placement:
+    #             constraints:
+    #                 # Must run on the host with OpenDKIM data volume
+    #                 - node.labels.role-mail-opendkim == true
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "128M"
 
     #
     # Postfix server
     # ---------------
     #
-    mail-postfix-server:
-        image: gcr.io/mcback/mail-postfix-server:release
-        init: true
-        networks:
-            - default
-        environment:
-            # Fully qualified domain name of a host server that will be used for HELO messages.
-            #
-            # Must both resolve and have a PTR record, i.e. if an email sent by us arrives from
-            # 1.2.3.4, and that host has a hostname smtp.mediacloud.org, then both:
-            #
-            # 1) Sending IP address should have a PTR record that points to FQDN:
-            #
-            #     $ nslookup 1.2.3.4
-            #     <...>
-            #     4.3.2.1.in-addr.arpa  name = smtp.mediacloud.org
-            #
-            # 2) The FQDN should resolve to sending IP address:
-            #
-            #     $ nslookup smtp.mediacloud.org
-            #     <...>
-            #     Non-authoritative answer:
-            #     Name:   server.mediacloud.org
-            #     Address: 1.2.3.4
-            #
-            MC_MAIL_POSTFIX_FQDN: "smtp.mediacloud.org"
-        depends_on:
-            # Signs emails using OpenDKIM
-            - mail-opendkim-server
-        expose:
-            # Expose SMTP to mail senders
-            - "25"
-        volumes:
-            - vol_postfix_data:/var/lib/postfix/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            placement:
-                constraints:
-                    # Must run on the host with Postfix data volume
-                    - node.labels.role-mail-postfix == true
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "128M"
+    # mail-postfix-server:
+    #     image: gcr.io/mcback/mail-postfix-server:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         # Fully qualified domain name of a host server that will be used for HELO messages.
+    #         #
+    #         # Must both resolve and have a PTR record, i.e. if an email sent by us arrives from
+    #         # 1.2.3.4, and that host has a hostname smtp.mediacloud.org, then both:
+    #         #
+    #         # 1) Sending IP address should have a PTR record that points to FQDN:
+    #         #
+    #         #     $ nslookup 1.2.3.4
+    #         #     <...>
+    #         #     4.3.2.1.in-addr.arpa  name = smtp.mediacloud.org
+    #         #
+    #         # 2) The FQDN should resolve to sending IP address:
+    #         #
+    #         #     $ nslookup smtp.mediacloud.org
+    #         #     <...>
+    #         #     Non-authoritative answer:
+    #         #     Name:   server.mediacloud.org
+    #         #     Address: 1.2.3.4
+    #         #
+    #         MC_MAIL_POSTFIX_FQDN: "smtp.mediacloud.org"
+    #     depends_on:
+    #         # Signs emails using OpenDKIM
+    #         - mail-opendkim-server
+    #     expose:
+    #         # Expose SMTP to mail senders
+    #         - "25"
+    #     volumes:
+    #         - vol_postfix_data:/var/lib/postfix/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         placement:
+    #             constraints:
+    #                 # Must run on the host with Postfix data volume
+    #                 - node.labels.role-mail-postfix == true
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "128M"
 
     #
     # Munin Cron stats collector
     # --------------------------
     #
-    munin-cron:
-        image: gcr.io/mcback/munin-cron:release
-        # Docker doesn't reap zombie processes properly
-        # (https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/),
-        # and Munin runs all kinds of plugins which might not take care of their children properly.
-        init: true
-        networks:
-            - default
-        depends_on:
-            # Reads data from Munin node
-            - munin-node
-        volumes:
-            # Shared with "munin-fastcgi-graph" container:
-            - vol_munin_data:/var/lib/munin/
-            # Shared with "munin-httpd" container:
-            - vol_munin_html:/var/cache/munin/www/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            placement:
-                constraints:
-                    # Must run on the same host as munin-httpd as they share two volumes
-                    - node.labels.role-munin-httpd == true
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "256M"
+    # munin-cron:
+    #     image: gcr.io/mcback/munin-cron:release
+    #     # Docker doesn't reap zombie processes properly
+    #     # (https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/),
+    #     # and Munin runs all kinds of plugins which might not take care of their children properly.
+    #     init: true
+    #     networks:
+    #         - default
+    #     depends_on:
+    #         # Reads data from Munin node
+    #         - munin-node
+    #     volumes:
+    #         # Shared with "munin-fastcgi-graph" container:
+    #         - vol_munin_data:/var/lib/munin/
+    #         # Shared with "munin-httpd" container:
+    #         - vol_munin_html:/var/cache/munin/www/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         placement:
+    #             constraints:
+    #                 # Must run on the same host as munin-httpd as they share two volumes
+    #                 - node.labels.role-munin-httpd == true
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "256M"
 
-    #
-    # Munin FastCGI graph generator
-    # -----------------------------
-    #
-    munin-fastcgi-graph:
-        image: gcr.io/mcback/munin-fastcgi-graph:release
-        init: true
-        networks:
-            - default
-        expose:
-            # FastCGI port
-            - "22334"
-        depends_on:
-            # Reads data generated by Munin stats collector
-            - munin-cron
-        volumes:
-            # Shared with "munin-cron" container:
-            - vol_munin_data:/var/lib/munin/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            placement:
-                constraints:
-                    # Must run on the same host as munin-cron as they share two volumes
-                    - node.labels.role-munin-httpd == true
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "256M"
+    # #
+    # # Munin FastCGI graph generator
+    # # -----------------------------
+    # #
+    # munin-fastcgi-graph:
+    #     image: gcr.io/mcback/munin-fastcgi-graph:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     expose:
+    #         # FastCGI port
+    #         - "22334"
+    #     depends_on:
+    #         # Reads data generated by Munin stats collector
+    #         - munin-cron
+    #     volumes:
+    #         # Shared with "munin-cron" container:
+    #         - vol_munin_data:/var/lib/munin/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         placement:
+    #             constraints:
+    #                 # Must run on the same host as munin-cron as they share two volumes
+    #                 - node.labels.role-munin-httpd == true
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "256M"
 
-    #
-    # Munin HTTP server
-    # -----------------
-    #
-    munin-httpd:
-        image: gcr.io/mcback/munin-httpd:release
-        init: true
-        networks:
-            - default
-        expose:
-            # Web UIs port
-            - "4948"
-        ports:
-            # For connecting to through a SSH tunnel
-            # MAKE SURE to BLOCK THIS PORT in provision/roles/docker/tasks/iptables.yml
-            - "4948:4948"
-        depends_on:
-            # Uses FastCGI worker to generate graphs
-            - munin-fastcgi-graph
-        volumes:
-            # Shared with "munin-cron" container:
-            - vol_munin_html:/var/cache/munin/www/
-        deploy:
-            # DNSRR disabled as it's not supported with published ports.
-            placement:
-                constraints:
-                    # Must run on the same host as munin-cron as they share two volumes
-                    - node.labels.role-munin-httpd == true
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "256M"
+    # #
+    # # Munin HTTP server
+    # # -----------------
+    # #
+    # munin-httpd:
+    #     image: gcr.io/mcback/munin-httpd:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     expose:
+    #         # Web UIs port
+    #         - "4948"
+    #     ports:
+    #         # For connecting to through a SSH tunnel
+    #         # MAKE SURE to BLOCK THIS PORT in provision/roles/docker/tasks/iptables.yml
+    #         - "4948:4948"
+    #     depends_on:
+    #         # Uses FastCGI worker to generate graphs
+    #         - munin-fastcgi-graph
+    #     volumes:
+    #         # Shared with "munin-cron" container:
+    #         - vol_munin_html:/var/cache/munin/www/
+    #     deploy:
+    #         # DNSRR disabled as it's not supported with published ports.
+    #         placement:
+    #             constraints:
+    #                 # Must run on the same host as munin-cron as they share two volumes
+    #                 - node.labels.role-munin-httpd == true
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "256M"
 
-    #
-    # Munin node
-    # ----------
-    #
-    munin-node:
-        image: gcr.io/mcback/munin-node:release
-        # Docker doesn't reap zombie processes properly
-        # (https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/),
-        # and Munin runs all kinds of plugins which might not take care of their children properly.
-        init: true
-        networks:
-            - default
-        depends_on:
-            # Monitors data on PostgreSQL
-            - postgresql-pgbouncer
-            # Monitors data on Solr
-            - solr-shard-01
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "512M"
+    # #
+    # # Munin node
+    # # ----------
+    # #
+    # munin-node:
+    #     image: gcr.io/mcback/munin-node:release
+    #     # Docker doesn't reap zombie processes properly
+    #     # (https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/),
+    #     # and Munin runs all kinds of plugins which might not take care of their children properly.
+    #     init: true
+    #     networks:
+    #         - default
+    #     depends_on:
+    #         # Monitors data on PostgreSQL
+    #         - postgresql-pgbouncer
+    #         # Monitors data on Solr
+    #         - solr-shard-01
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "512M"
 
     #
     # NYT-Based News Tagger service
@@ -1257,129 +1317,129 @@ services:
     # Fetch story podcast episode and store it in GCS
     # -----------------------------------------------
     #
-    podcast-fetch-episode:
-        image: gcr.io/mcback/podcast-fetch-episode:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-            <<: *podcast-google-cloud-configuration
-            # Google Cloud Storage bucket name for storing episode audio files
-            MC_PODCAST_FETCH_EPISODE_BUCKET_NAME: "mediacloud-story-podcast-episodes"
-            # Google Cloud Storage path prefix for storing episode audio files
-            MC_PODCAST_FETCH_EPISODE_PATH_PREFIX: "episodes"
-        depends_on:
-            - postgresql-pgbouncer
-            - rabbitmq-server
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            # Worker count
-            replicas: 1
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "1G"
-            restart_policy:
-                # Automatically restart on non-zero exit codes only instead of on any exit
-                condition: on-failure
-                # Autorestart up to three times
-                max_attempts: 3
+    # podcast-fetch-episode:
+    #     image: gcr.io/mcback/podcast-fetch-episode:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #         <<: *podcast-google-cloud-configuration
+    #         # Google Cloud Storage bucket name for storing episode audio files
+    #         MC_PODCAST_FETCH_EPISODE_BUCKET_NAME: "mediacloud-story-podcast-episodes"
+    #         # Google Cloud Storage path prefix for storing episode audio files
+    #         MC_PODCAST_FETCH_EPISODE_PATH_PREFIX: "episodes"
+    #     depends_on:
+    #         - postgresql-pgbouncer
+    #         - rabbitmq-server
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         # Worker count
+    #         replicas: 1
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "1G"
+    #         restart_policy:
+    #             # Automatically restart on non-zero exit codes only instead of on any exit
+    #             condition: on-failure
+    #             # Autorestart up to three times
+    #             max_attempts: 3
 
-    #
-    # Fetch finished transcripts and store them locally
-    # -------------------------------------------------
-    podcast-fetch-transcript:
-        image: gcr.io/mcback/podcast-fetch-transcript:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-            <<: *podcast-google-cloud-configuration
-        depends_on:
-            - postgresql-pgbouncer
-            - rabbitmq-server
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            # Worker count
-            replicas: 1
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "256M"
-            restart_policy:
-                # Automatically restart on non-zero exit codes only instead of on any exit
-                condition: on-failure
-                # Autorestart up to three times
-                max_attempts: 3
+    # #
+    # # Fetch finished transcripts and store them locally
+    # # -------------------------------------------------
+    # podcast-fetch-transcript:
+    #     image: gcr.io/mcback/podcast-fetch-transcript:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #         <<: *podcast-google-cloud-configuration
+    #     depends_on:
+    #         - postgresql-pgbouncer
+    #         - rabbitmq-server
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         # Worker count
+    #         replicas: 1
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "256M"
+    #         restart_policy:
+    #             # Automatically restart on non-zero exit codes only instead of on any exit
+    #             condition: on-failure
+    #             # Autorestart up to three times
+    #             max_attempts: 3
 
-    #
-    # Poll due operations and submit them to "podcast-fetch-transcript"
-    # -----------------------------------------------------------------
-    podcast-poll-due-operations:
-        image: gcr.io/mcback/podcast-poll-due-operations:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-        depends_on:
-            - postgresql-pgbouncer
-            - rabbitmq-server
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            # Worker count
-            replicas: 1
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "256M"
-            restart_policy:
-                # Automatically restart on non-zero exit codes only instead of on any exit
-                condition: on-failure
-                # Autorestart up to three times
-                max_attempts: 3
+    # #
+    # # Poll due operations and submit them to "podcast-fetch-transcript"
+    # # -----------------------------------------------------------------
+    # podcast-poll-due-operations:
+    #     image: gcr.io/mcback/podcast-poll-due-operations:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #     depends_on:
+    #         - postgresql-pgbouncer
+    #         - rabbitmq-server
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         # Worker count
+    #         replicas: 1
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "256M"
+    #         restart_policy:
+    #             # Automatically restart on non-zero exit codes only instead of on any exit
+    #             condition: on-failure
+    #             # Autorestart up to three times
+    #             max_attempts: 3
 
-    #
-    # Submit a Speech API operation for a podcast episode
-    # ---------------------------------------------------
-    podcast-submit-operation:
-        image: gcr.io/mcback/podcast-submit-operation:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-            <<: *podcast-google-cloud-configuration
-        depends_on:
-            - postgresql-pgbouncer
-            - rabbitmq-server
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            # Worker count
-            replicas: 1
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "256M"
-            restart_policy:
-                # Automatically restart on non-zero exit codes only instead of on any exit
-                condition: on-failure
-                # Autorestart up to three times
-                max_attempts: 3
+    # #
+    # # Submit a Speech API operation for a podcast episode
+    # # ---------------------------------------------------
+    # podcast-submit-operation:
+    #     image: gcr.io/mcback/podcast-submit-operation:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #         <<: *podcast-google-cloud-configuration
+    #     depends_on:
+    #         - postgresql-pgbouncer
+    #         - rabbitmq-server
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         # Worker count
+    #         replicas: 1
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "256M"
+    #         restart_policy:
+    #             # Automatically restart on non-zero exit codes only instead of on any exit
+    #             condition: on-failure
+    #             # Autorestart up to three times
+    #             max_attempts: 3
 
     #
     # PgBouncer
@@ -1425,7 +1485,7 @@ services:
             - type: tmpfs
               target: /dev/shm
               tmpfs:
-                size: 68719476736   # 64 GB
+                size: 17179869184   # 16 GB
         deploy:
             <<: *endpoint-mode-dnsrr
             placement:
@@ -1589,203 +1649,203 @@ services:
             <<: *solr-shard_base_deploy_resources
             <<: *solr-shard_base_deploy_placement_host1
 
-    solr-shard-03:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_03:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host1
+    # solr-shard-03:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_03:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host1
 
-    solr-shard-04:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_04:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host1
+    # solr-shard-04:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_04:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host1
 
-    solr-shard-05:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_05:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host1
+    # solr-shard-05:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_05:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host1
 
-    solr-shard-06:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_06:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host1
+    # solr-shard-06:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_06:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host1
 
-    solr-shard-07:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_07:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host1
+    # solr-shard-07:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_07:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host1
 
-    solr-shard-08:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_08:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host1
+    # solr-shard-08:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_08:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host1
 
-    solr-shard-09:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_09:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host2
+    # solr-shard-09:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_09:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host2
 
-    solr-shard-10:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_10:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host2
+    # solr-shard-10:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_10:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host2
 
-    solr-shard-11:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_11:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host2
+    # solr-shard-11:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_11:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host2
 
-    solr-shard-12:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_12:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host2
+    # solr-shard-12:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_12:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host2
 
-    solr-shard-13:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_13:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host2
+    # solr-shard-13:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_13:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host2
 
-    solr-shard-14:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_14:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host2
+    # solr-shard-14:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_14:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host2
 
-    solr-shard-15:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_15:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host2
+    # solr-shard-15:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_15:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host2
 
-    solr-shard-16:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_16:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host2
+    # solr-shard-16:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_16:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host2
 
-    solr-shard-17:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_17:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host3
+    # solr-shard-17:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_17:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host3
 
-    solr-shard-18:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_18:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host3
+    # solr-shard-18:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_18:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host3
 
-    solr-shard-19:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_19:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host3
+    # solr-shard-19:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_19:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host3
 
-    solr-shard-20:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_20:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host3
+    # solr-shard-20:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_20:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host3
 
-    solr-shard-21:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_21:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host3
+    # solr-shard-21:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_21:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host3
 
-    solr-shard-22:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_22:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host3
+    # solr-shard-22:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_22:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host3
 
-    solr-shard-23:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_23:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host3
+    # solr-shard-23:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_23:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host3
 
-    solr-shard-24:
-        <<: *solr-shard_base
-        volumes:
-            - vol_solr_shard_data_24:/var/lib/solr/
-        deploy:
-            <<: *endpoint-mode-dnsrr
-            <<: *solr-shard_base_deploy_resources
-            <<: *solr-shard_base_deploy_placement_host3
+    # solr-shard-24:
+    #     <<: *solr-shard_base
+    #     volumes:
+    #         - vol_solr_shard_data_24:/var/lib/solr/
+    #     deploy:
+    #         <<: *endpoint-mode-dnsrr
+    #         <<: *solr-shard_base_deploy_resources
+    #         <<: *solr-shard_base_deploy_placement_host3
 
     #
     # Proxy to Solr's management webapp
@@ -1896,100 +1956,98 @@ services:
     # Fetch Twitter URLs
     # ------------------
     #
-    topics-fetch-twitter-urls:
-        image: gcr.io/mcback/topics-fetch-twitter-urls:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-            <<: *twitter-api-configuration
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            # Worker count
-            replicas: 8
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "256M"
+    # topics-fetch-twitter-urls:
+    #     image: gcr.io/mcback/topics-fetch-twitter-urls:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #         <<: *twitter-api-configuration
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         # Worker count
+    #         replicas: 8
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "256M"
 
     #
     # Generate maps for a topic
     # -------------------------
     #
-    topics-map:
-        image: gcr.io/mcback/topics-map:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            # Worker count
-            replicas: 2
-            resources:
-                limits:
-                    # CPU core limit - big jobs require lots of parallel processing or else take hours
-                    cpus: "8"
-                    # RAM limit - big network analysis jobs require lots of memory or else crash
-                    memory: "8G"
+    # topics-map:
+    #     image: gcr.io/mcback/topics-map:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         # Worker count
+    #         replicas: 2
+    #         resources:
+    #             limits:
+    #                 # CPU core limit - big jobs require lots of parallel processing or else take hours
+    #                 cpus: "8"
+    #                 # RAM limit - big network analysis jobs require lots of memory or else crash
+    #                 memory: "8G"
 
     #
     # Mine a topic
     # ------------
     #
-    topics-mine:
-        image: gcr.io/mcback/topics-mine:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-            <<: *twitter-api-configuration
-            <<: *crimson-hexagon-api-configuration
-            <<: *brandwatch-api-configuration
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            # Worker count
-            replicas: 4
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "2G"
+    # topics-mine:
+    #     image: gcr.io/mcback/topics-mine:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #         <<: *twitter-api-configuration
+    #         <<: *crimson-hexagon-api-configuration
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         # Worker count
+    #         replicas: 4
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "2G"
 
     #
     # Mine a public topic
     # -------------------
     #
-    topics-mine-public:
-        image: gcr.io/mcback/topics-mine-public:release
-        init: true
-        networks:
-            - default
-        environment:
-            <<: *common-configuration
-            <<: *twitter-api-configuration
-            <<: *crimson-hexagon-api-configuration
-            <<: *brandwatch-api-configuration
-        deploy:
-            <<: *misc-apps_deploy_placement_constraints
-            <<: *endpoint-mode-dnsrr
-            # Worker count
-            replicas: 4
-            resources:
-                limits:
-                    # CPU core limit
-                    cpus: "1"
-                    # RAM limit
-                    memory: "2G"
+    # topics-mine-public:
+    #     image: gcr.io/mcback/topics-mine-public:release
+    #     init: true
+    #     networks:
+    #         - default
+    #     environment:
+    #         <<: *common-configuration
+    #         <<: *twitter-api-configuration
+    #         <<: *crimson-hexagon-api-configuration
+    #     deploy:
+    #         <<: *misc-apps_deploy_placement_constraints
+    #         <<: *endpoint-mode-dnsrr
+    #         # Worker count
+    #         replicas: 4
+    #         resources:
+    #             limits:
+    #                 # CPU core limit
+    #                 cpus: "1"
+    #                 # RAM limit
+    #                 memory: "2G"
 
     #
     # Snapshot a topic
@@ -2136,7 +2194,7 @@ volumes:
         driver_opts:
             type: none
             o: bind
-            device: /space/mediacloud/vol_postgresql_data
+            device: /home/ubuntu/space/mediacloud/vol_postgresql_data
 
     # Solr shard's data
     vol_solr_shard_data_01:
@@ -2144,168 +2202,168 @@ volumes:
         driver_opts:
             type: none
             o: bind
-            device: /space/mediacloud/vol_solr_shard_data_01
+            device: /home/ubuntu/space/mediacloud/vol_solr_shard_data_01
 
     vol_solr_shard_data_02:
         driver: local
         driver_opts:
             type: none
             o: bind
-            device: /space/mediacloud/vol_solr_shard_data_02
+            device: /home/ubuntu/space/mediacloud/vol_solr_shard_data_02
 
-    vol_solr_shard_data_03:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_03
+    # vol_solr_shard_data_03:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_03
 
-    vol_solr_shard_data_04:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_04
+    # vol_solr_shard_data_04:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_04
 
-    vol_solr_shard_data_05:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_05
+    # vol_solr_shard_data_05:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_05
 
-    vol_solr_shard_data_06:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_06
+    # vol_solr_shard_data_06:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_06
 
-    vol_solr_shard_data_07:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_07
+    # vol_solr_shard_data_07:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_07
 
-    vol_solr_shard_data_08:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_08
+    # vol_solr_shard_data_08:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_08
 
-    vol_solr_shard_data_09:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_09
+    # vol_solr_shard_data_09:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_09
 
-    vol_solr_shard_data_10:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_10
+    # vol_solr_shard_data_10:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_10
 
-    vol_solr_shard_data_11:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_11
+    # vol_solr_shard_data_11:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_11
 
-    vol_solr_shard_data_12:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_12
+    # vol_solr_shard_data_12:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_12
 
-    vol_solr_shard_data_13:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_13
+    # vol_solr_shard_data_13:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_13
 
-    vol_solr_shard_data_14:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_14
+    # vol_solr_shard_data_14:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_14
 
-    vol_solr_shard_data_15:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_15
+    # vol_solr_shard_data_15:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_15
 
-    vol_solr_shard_data_16:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_16
+    # vol_solr_shard_data_16:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_16
 
-    vol_solr_shard_data_17:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_17
+    # vol_solr_shard_data_17:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_17
 
-    vol_solr_shard_data_18:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_18
+    # vol_solr_shard_data_18:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_18
 
-    vol_solr_shard_data_19:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_19
+    # vol_solr_shard_data_19:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_19
 
-    vol_solr_shard_data_20:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_20
+    # vol_solr_shard_data_20:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_20
 
-    vol_solr_shard_data_21:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_21
+    # vol_solr_shard_data_21:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_21
 
-    vol_solr_shard_data_22:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_22
+    # vol_solr_shard_data_22:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_22
 
-    vol_solr_shard_data_23:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_23
+    # vol_solr_shard_data_23:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_23
 
-    vol_solr_shard_data_24:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_solr_shard_data_24
+    # vol_solr_shard_data_24:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_solr_shard_data_24
 
     # RabbitMQ data
     vol_rabbitmq_data:
@@ -2313,15 +2371,15 @@ volumes:
         driver_opts:
             type: none
             o: bind
-            device: /space/mediacloud/vol_rabbitmq_data
+            device: /home/ubuntu/space/mediacloud/vol_rabbitmq_data
 
     # OpenDKIM configuration and keys
-    vol_opendkim_config:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_opendkim_config
+    # vol_opendkim_config:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_opendkim_config
 
     # Postfix data
     vol_postfix_data:
@@ -2329,7 +2387,7 @@ volumes:
         driver_opts:
             type: none
             o: bind
-            device: /space/mediacloud/vol_postfix_data
+            device: /home/ubuntu/space/mediacloud/vol_postfix_data
 
     # PgAdmin data
     vol_pgadmin_data:
@@ -2337,7 +2395,7 @@ volumes:
         driver_opts:
             type: none
             o: bind
-            device: /space/mediacloud/vol_pgadmin_data
+            device: /home/ubuntu/space/mediacloud/vol_pgadmin_data
 
     # Daily RSS dumps
     # (shared between cron_generate_daily_rss_dumps and webapp-httpd)
@@ -2346,30 +2404,30 @@ volumes:
         driver_opts:
             type: none
             o: bind
-            device: /space/mediacloud/vol_daily_rss_dumps
+            device: /home/ubuntu/space/mediacloud/vol_daily_rss_dumps
 
     # Munin's RRD data
     # (shared between munin_cron and munin_httpd)
-    vol_munin_data:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_munin_data
+    # vol_munin_data:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_munin_data
 
     # Munin's generated HTML files
     # (shared between munin_cron and munin_httpd)
-    vol_munin_html:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_munin_html
+    # vol_munin_html:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_munin_html
 
     # ELK Elasticsearch log index
-    vol_elk_elasticsearch_data:
-        driver: local
-        driver_opts:
-            type: none
-            o: bind
-            device: /space/mediacloud/vol_elk_elasticsearch_data
+    # vol_elk_elasticsearch_data:
+    #     driver: local
+    #     driver_opts:
+    #         type: none
+    #         o: bind
+    #         device: /space/mediacloud/vol_elk_elasticsearch_data
