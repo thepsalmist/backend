@@ -1028,82 +1028,82 @@ services:
     # OpenDKIM server
     # ---------------
     #
-    # mail-opendkim-server:
-    #     image: gcr.io/mcback/mail-opendkim-server:release
-    #     init: true
-    #     networks:
-    #         - default
-    #     environment:
-    #         # Top-level domain to use for signing emails, e.g. "mediacloud.org"
-    #         MC_MAIL_OPENDKIM_DOMAIN: "mediacloud.org"
-    #     expose:
-    #         # OpenDKIM port used by Postfix
-    #         - "12301"
-    #     volumes:
-    #         - vol_opendkim_config:/etc/opendkim/
-    #     deploy:
-    #         <<: *endpoint-mode-dnsrr
-    #         placement:
-    #             constraints:
-    #                 # Must run on the host with OpenDKIM data volume
-    #                 - node.labels.role-mail-opendkim == true
-    #         resources:
-    #             limits:
-    #                 # CPU core limit
-    #                 cpus: "1"
-    #                 # RAM limit
-    #                 memory: "128M"
+    mail-opendkim-server:
+        image: gcr.io/mcback/mail-opendkim-server:release
+        init: true
+        networks:
+            - default
+        environment:
+            # Top-level domain to use for signing emails, e.g. "mediacloud.org"
+            MC_MAIL_OPENDKIM_DOMAIN: "civicsignal.africa"
+        expose:
+            # OpenDKIM port used by Postfix
+            - "12301"
+        volumes:
+            - vol_opendkim_config:/etc/opendkim/
+        deploy:
+            <<: *endpoint-mode-dnsrr
+            placement:
+                constraints:
+                    # Must run on the host with OpenDKIM data volume
+                    - node.labels.role-mail-opendkim == true
+            resources:
+                limits:
+                    # CPU core limit
+                    cpus: "1"
+                    # RAM limit
+                    memory: "128M"
 
     #
     # Postfix server
     # ---------------
     #
-    # mail-postfix-server:
-    #     image: gcr.io/mcback/mail-postfix-server:release
-    #     init: true
-    #     networks:
-    #         - default
-    #     environment:
-    #         # Fully qualified domain name of a host server that will be used for HELO messages.
-    #         #
-    #         # Must both resolve and have a PTR record, i.e. if an email sent by us arrives from
-    #         # 1.2.3.4, and that host has a hostname smtp.mediacloud.org, then both:
-    #         #
-    #         # 1) Sending IP address should have a PTR record that points to FQDN:
-    #         #
-    #         #     $ nslookup 1.2.3.4
-    #         #     <...>
-    #         #     4.3.2.1.in-addr.arpa  name = smtp.mediacloud.org
-    #         #
-    #         # 2) The FQDN should resolve to sending IP address:
-    #         #
-    #         #     $ nslookup smtp.mediacloud.org
-    #         #     <...>
-    #         #     Non-authoritative answer:
-    #         #     Name:   server.mediacloud.org
-    #         #     Address: 1.2.3.4
-    #         #
-    #         MC_MAIL_POSTFIX_FQDN: "smtp.mediacloud.org"
-    #     depends_on:
-    #         # Signs emails using OpenDKIM
-    #         - mail-opendkim-server
-    #     expose:
-    #         # Expose SMTP to mail senders
-    #         - "25"
-    #     volumes:
-    #         - vol_postfix_data:/var/lib/postfix/
-    #     deploy:
-    #         <<: *endpoint-mode-dnsrr
-    #         placement:
-    #             constraints:
-    #                 # Must run on the host with Postfix data volume
-    #                 - node.labels.role-mail-postfix == true
-    #         resources:
-    #             limits:
-    #                 # CPU core limit
-    #                 cpus: "1"
-    #                 # RAM limit
-    #                 memory: "128M"
+    mail-postfix-server:
+        image: gcr.io/mcback/mail-postfix-server:release
+        init: true
+        networks:
+            - default
+        environment:
+            # Fully qualified domain name of a host server that will be used for HELO messages.
+            #
+            # Must both resolve and have a PTR record, i.e. if an email sent by us arrives from
+            # 1.2.3.4, and that host has a hostname smtp.mediacloud.org, then both:
+            #
+            # 1) Sending IP address should have a PTR record that points to FQDN:
+            #
+            #     $ nslookup 1.2.3.4
+            #     <...>
+            #     4.3.2.1.in-addr.arpa  name = smtp.mediacloud.org
+            #
+            # 2) The FQDN should resolve to sending IP address:
+            #
+            #     $ nslookup smtp.mediacloud.org
+            #     <...>
+            #     Non-authoritative answer:
+            #     Name:   server.mediacloud.org
+            #     Address: 1.2.3.4
+            #
+            MC_MAIL_POSTFIX_FQDN: "smtp.civicsignal.africa"
+        depends_on:
+            # Signs emails using OpenDKIM
+            - mail-opendkim-server
+        expose:
+            # Expose SMTP to mail senders
+            - "25"
+        volumes:
+            - vol_postfix_data:/var/lib/postfix/
+        deploy:
+            <<: *endpoint-mode-dnsrr
+            placement:
+                constraints:
+                    # Must run on the host with Postfix data volume
+                    - node.labels.role-mail-postfix == true
+            resources:
+                limits:
+                    # CPU core limit
+                    cpus: "1"
+                    # RAM limit
+                    memory: "128M"
 
     #
     # Munin Cron stats collector
@@ -2374,12 +2374,12 @@ volumes:
             device: /home/ubuntu/space/mediacloud/vol_rabbitmq_data
 
     # OpenDKIM configuration and keys
-    # vol_opendkim_config:
-    #     driver: local
-    #     driver_opts:
-    #         type: none
-    #         o: bind
-    #         device: /space/mediacloud/vol_opendkim_config
+    vol_opendkim_config:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: /home/ubuntu/space/mediacloud/vol_opendkim_config
 
     # Postfix data
     vol_postfix_data:
