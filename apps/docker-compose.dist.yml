@@ -72,7 +72,7 @@ x-common-configuration: &common-configuration
     #MC_PUBLIC_AMAZON_S3_DIRECTORY_NAME: "production"
 
     # "From:" email address when sending emails
-    MC_EMAIL_FROM_ADDRESS: "info@mediacloud.org"
+    MC_EMAIL_FROM_ADDRESS: "info@app.civicsignal.africa"
 
     # Email address to point to in List-Unsubscribe email header.
     # Technically we don't have a straightforward "unsubscribe" endpoint, but our 
@@ -120,7 +120,7 @@ x-common-configuration: &common-configuration
     MC_USERAGENT_PARALLEL_GET_NUM_PARALLEL: "10"
 
     # parallel_get() connection timeout, in seconds
-    MC_USERAGENT_PARALLEL_GET_TIMEOUT: "90"
+    MC_USERAGENT_PARALLEL_GET_TIMEOUT: "10"
 
     # parallel_get() per-domain timeout, in seconds
     MC_USERAGENT_PARALLEL_GET_PER_DOMAIN_TIMEOUT: "1"
@@ -1083,7 +1083,7 @@ services:
             #     Name:   server.mediacloud.org
             #     Address: 1.2.3.4
             #
-            MC_MAIL_POSTFIX_FQDN: "smtp.civicsignal.africa"
+            MC_MAIL_POSTFIX_FQDN: "app.civicsignal.africa"
         depends_on:
             # Signs emails using OpenDKIM
             - mail-opendkim-server
