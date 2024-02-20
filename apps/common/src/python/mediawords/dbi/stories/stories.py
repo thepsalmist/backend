@@ -214,37 +214,16 @@ def add_story(db: DatabaseHandler, story: dict, feeds_id: int) -> Optional[dict]
 
     [insert_story_urls(db, story, u) for u in (story['url'], story['guid'])]
 
-    #feeds_stories_map partitioned??
-    try:
-        record_exists = db.query(
-            """
-            select 1 from feeds_stories_map where feeds_id = %(a)s and stories_id = %(b)s
-            """,
-            {'a': feeds_id, 'b': story['stories_id']}
-        ).fetchone()
-        if not record_exists:
-            db.query(
-                """
-                insert into feeds_stories_map_p (feeds_id, stories_id)
-                values (%(a)s, %(b)s)
-                """,
-                {'a': feeds_id, 'b': story['stories_id']}
-            )
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        log.error("An error occured when adding story: %s" % story['stories_id'])
-    
     # on conflict does not work with partitioned feeds_stories_map
-    # db.query(
-    #     """
-    #     insert into feeds_stories_map_p ( feeds_id, stories_id )
-    #         select %(a)s, %(b)s where not exists (
-    #             select 1 from feeds_stories_map where feeds_id = %(a)s and stories_id = %(b)s )
-    #     """,
-    #     {'a': feeds_id, 'b': story['stories_id']})
+    db.query(
+        """
+        insert into feeds_stories_map_p ( feeds_id, stories_id )
+            select %(a)s, %(b)s where not exists (
+                select 1 from feeds_stories_map where feeds_id = %(a)s and stories_id = %(b)s )
+        """,
+        {'a': feeds_id, 'b': story['stories_id']})
 
-    # db.commit()
+    db.commit()
 
     log.debug("added story: %s" % story['url'])
 
