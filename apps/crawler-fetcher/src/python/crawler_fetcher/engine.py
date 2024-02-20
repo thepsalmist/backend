@@ -133,7 +133,10 @@ def run_fetcher(no_daemon: bool = False) -> None:
         try:
             downloads_id = db.query("SELECT pop_queued_download()").flat()[0]
             if downloads_id:
-                download = db.find_by_id(table='downloads', object_id=downloads_id)
+                try:
+                    download = db.find_by_id(table='downloads', object_id=downloads_id)
+                except McCrawlerFetcherSoftError as ex:
+                    _log_download_error(db=db, download=download, error_message=str(ex))
 
                 idle_timer.stop()
 

@@ -1,6 +1,8 @@
 import datetime
 from typing import Optional
 
+from crawler_fetcher.exceptions import McCrawlerFetcherSoftError
+
 from mediawords.db import DatabaseHandler
 from mediawords.dbi.stories.stories import add_story
 from mediawords.util.perl import decode_object_from_bytes_if_needed
@@ -45,8 +47,11 @@ def add_story_and_content_download(db: DatabaseHandler, story: dict, parent_down
     """If the story is new, add it to the database and also add a pending download for the story content."""
     story = decode_object_from_bytes_if_needed(story)
     parent_download = decode_object_from_bytes_if_needed(parent_download)
-
-    story = add_story(db=db, story=story, feeds_id=parent_download['feeds_id'])
+    
+    try:
+        story = add_story(db=db, story=story, feeds_id=parent_download['feeds_id'])
+    except McCrawlerFetcherSoftError as ex:
+        raise McCrawlerFetcherSoftError(f"Error adding story, feed_id:{parent_download['feeds_id']} story_id:{story['url']}: {ex}")
 
     if story:
         if story.get('is_new', False):

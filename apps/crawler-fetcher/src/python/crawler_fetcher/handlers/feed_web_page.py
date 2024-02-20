@@ -3,6 +3,7 @@ from typing import List
 
 from mediawords.db import DatabaseHandler
 from mediawords.dbi.stories.stories import add_story
+from mediawords.util.log import create_logger
 from mediawords.util.parse_html import html_title
 from mediawords.util.perl import decode_object_from_bytes_if_needed
 from mediawords.util.sql import sql_now
@@ -12,6 +13,7 @@ from crawler_fetcher.handler import AbstractDownloadHandler
 from crawler_fetcher.handlers.default.fetch_mixin import DefaultFetchMixin
 from crawler_fetcher.handlers.feed import AbstractDownloadFeedHandler
 
+log = create_logger(__name__)
 
 class DownloadFeedWebPageHandler(DefaultFetchMixin, AbstractDownloadFeedHandler, AbstractDownloadHandler):
     """Handler for 'web_page' feed downloads."""
@@ -42,8 +44,10 @@ class DownloadFeedWebPageHandler(DefaultFetchMixin, AbstractDownloadFeedHandler,
             'title': title,
         }
 
-        story = add_story(db=db, story=new_story, feeds_id=feeds_id)
-        if not story:
+        try:
+            story = add_story(db=db, story=new_story, feeds_id=feeds_id)
+        except McCrawlerFetcherSoftError as ex:
+            log.error(f"Failed to add story {new_story} : {ex}")
             raise McCrawlerFetcherSoftError(f"Failed to add story {new_story}")
 
         db.query("""
@@ -60,19 +64,24 @@ class DownloadFeedWebPageHandler(DefaultFetchMixin, AbstractDownloadFeedHandler,
         story_ids = [
             story['stories_id'],
         ]
-
+        log.info(f"Feed webpage: added stories, count ..{len(story_ids)}")
         return story_ids
 
     def return_stories_to_be_extracted_from_feed(self, db: DatabaseHandler, download: dict, content: str) -> List[int]:
         download = decode_object_from_bytes_if_needed(download)
         # content = decode_object_from_bytes_if_needed(content)
 
-        # Download row might have been changed by add_stories_from_feed()
-        download = db.find_by_id(table='downloads', object_id=download['downloads_id'])
+        try:
+            # Download row might have been changed by add_stories_from_feed()
+            download = db.find_by_id(table='downloads', object_id=download['downloads_id'])
+        except McCrawlerFetcherSoftError as ex:
+            log.error(f"Feed webpage: download {download['downloads_id']} does not exist, {ex}")
 
         # Extract web page download that was just fetched
         stories_to_extract = [
             download['stories_id'],
         ]
+
+        log.info(f"Feed, webpage stories to be extracted, count ..{len(stories_to_extract)}")
 
         return stories_to_extract
