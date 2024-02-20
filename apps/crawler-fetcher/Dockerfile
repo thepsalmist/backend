@@ -2,7 +2,7 @@
 # Crawler fetcher
 #
 
-FROM gcr.io/mcback/common:base
+FROM gcr.io/mcback/common:release
 
 # Copy sources
 COPY src/ /opt/mediacloud/src/crawler-fetcher/
